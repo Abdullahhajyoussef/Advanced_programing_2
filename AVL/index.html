@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>شجرة AVL - الحالات الأربع مع شرح بصري</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f7fb;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 5px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      padding: 20px 20px 30px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+    input[type="number"] {
+      padding: 10px 15px;
+      font-size: 16px;
+      border: 2px solid #b0bec5;
+      border-radius: 8px;
+      width: 120px;
+      outline: none;
+      transition: 0.2s;
+    }
+    input[type="number"]:focus {
+      border-color: #1e88e5;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #1e88e5;
+      color: white;
+      transition: background 0.2s;
+      margin: 0 5px;
+    }
+    button:hover {
+      background: #1565c0;
+    }
+    button.reset {
+      background: #e53935;
+    }
+    button.reset:hover {
+      background: #c62828;
+    }
+    .tree-area {
+      margin: 20px 0;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 20px 10px;
+      min-height: 350px;
+      overflow-x: auto;
+    }
+    svg {
+      display: block;
+      margin: 0 auto;
+    }
+    .explanation-box {
+      background: #e8f0fe;
+      border-right: 4px solid #1e88e5;
+      border-radius: 8px;
+      padding: 15px 20px;
+      margin-top: 15px;
+      text-align: right;
+      color: #0d47a1;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 50px;
+      white-space: pre-wrap;
+    }
+    .history {
+      margin-top: 25px;
+      background: #fff8e1;
+      border-radius: 8px;
+      padding: 15px;
+      text-align: right;
+      font-size: 14px;
+      color: #4e342e;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ffe0b2;
+    }
+    .history div {
+      margin-bottom: 4px;
+    }
+    hr {
+      margin: 20px 0;
+      border: 0.5px solid #e0e0e0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌳 شجرة AVL تفاعلية</h1>
+    <p style="color:#5f6368;">أدخل أرقاماً واحدة تلو الأخرى ، وشاهد التوازن والدورانات تحدث مباشرة مع الشرح</p>
+    
+    <div class="controls">
+      <input type="number" id="valueInput" placeholder="رقم العقدة" value="30">
+      <button onclick="insertValue()">➕ إدراج</button>
+      <button class="reset" onclick="resetTree()">🔄 إعادة تعيين</button>
+      <button style="background:#ff9800;" onclick="insertSequence()">⚡ إدراج 30,20,10,40,50,25</button>
+    </div>
+
+    <div class="tree-area" id="treeContainer">
+      <svg id="treeSVG" width="100%" height="400"></svg>
+    </div>
+
+    <div class="explanation-box" id="explanation">
+      🟢 الشجرة فارغة. ابدأ بإدراج العقد.
+    </div>
+
+    <div class="history" id="history">
+      <strong>📜 سجل العمليات:</strong>
+    </div>
+  </div>
+
+  <script>
+    // ===================== AVL Tree Implementation =====================
+    class Node {
+      constructor(key) {
+        this.key = key;
+        this.left = null;
+        this.right = null;
+        this.height = 1;
+      }
+    }
+
+    function getHeight(node) {
+      return node ? node.height : 0;
+    }
+
+    function getBalance(node) {
+      return node ? getHeight(node.left) - getHeight(node.right) : 0;
+    }
+
+    function rightRotate(y) {
+      const x = y.left;
+      const T2 = x.right;
+
+      // Perform rotation
+      x.right = y;
+      y.left = T2;
+
+      // Update heights
+      y.height = Math.max(getHeight(y.left), getHeight(y.right)) + 1;
+      x.height = Math.max(getHeight(x.left), getHeight(x.right)) + 1;
+
+      return x; // New root
+    }
+
+    function leftRotate(x) {
+      const y = x.right;
+      const T2 = y.left;
+
+      // Perform rotation
+      y.left = x;
+      x.right = T2;
+
+      // Update heights
+      x.height = Math.max(getHeight(x.left), getHeight(x.right)) + 1;
+      y.height = Math.max(getHeight(y.left), getHeight(y.right)) + 1;
+
+      return y; // New root
+    }
+
+    // Insert function that returns [newRoot, rotationDescription]
+    function insert(node, key, pathNodes = []) {
+      // Standard BST insert
+      if (!node) {
+        return [new Node(key), null]; // no rotation description
+      }
+
+      let rotationInfo = null;
+
+      if (key < node.key) {
+        const [newLeft, desc] = insert(node.left, key, pathNodes);
+        node.left = newLeft;
+        if (desc) rotationInfo = desc;
+      } else if (key > node.key) {
+        const [newRight, desc] = insert(node.right, key, pathNodes);
+        node.right = newRight;
+        if (desc) rotationInfo = desc;
+      } else {
+        // Duplicate keys not allowed, return node as is
+        return [node, { type: 'duplicate', key: key }];
+      }
+
+      // Update height of current node
+      node.height = 1 + Math.max(getHeight(node.left), getHeight(node.right));
+
+      // Check balance factor
+      const balance = getBalance(node);
+
+      // Left Heavy (balance > 1)
+      if (balance > 1 && key < node.left.key) {
+        // LL Case
+        const rotated = rightRotate(node);
+        rotationInfo = {
+          type: 'LL',
+          unbalancedNode: node.key,
+          pivotNode: node.left.key,
+          description: `⚡ حالة LL (Left-Left): إدراج ${key} جعل العقدة ${node.key} غير متوازنة (BF=+2). الابن الأيسر ${node.left.key} أثقل. تم تطبيق دوران لليمين على ${node.key}.`
+        };
+        return [rotated, rotationInfo];
+      }
+      if (balance > 1 && key > node.left.key) {
+        // LR Case
+        const unbalancedKey = node.key;
+        const leftChild = node.left.key;
+        node.left = leftRotate(node.left);
+        const rotated = rightRotate(node);
+        rotationInfo = {
+          type: 'LR',
+          unbalancedNode: unbalancedKey,
+          pivotNode: node.left ? node.left.key : '?',
+          description: `⚡ حالة LR (Left-Right): إدراج ${key} أدى إلى عدم توازن في العقدة ${unbalancedKey} (BF=+2). الابن الأيسر ${leftChild} ثقيل يميناً. تم تنفيذ دوران مزدوج: أولاً دوران يسار على ${leftChild}، ثم دوران يمين على ${unbalancedKey}.`
+        };
+        return [rotated, rotationInfo];
+      }
+      // Right Heavy (balance < -1)
+      if (balance < -1 && key > node.right.key) {
+        // RR Case
+        const rotated = leftRotate(node);
+        rotationInfo = {
+          type: 'RR',
+          unbalancedNode: node.key,
+          pivotNode: node.right.key,
+          description: `⚡ حالة RR (Right-Right): إدراج ${key} جعل العقدة ${node.key} غير متوازنة (BF=-2). الابن الأيمن ${node.right.key} أثقل. تم تطبيق دوران لليسار على ${node.key}.`
+        };
+        return [rotated, rotationInfo];
+      }
+      if (balance < -1 && key < node.right.key) {
+        // RL Case
+        const unbalancedKey = node.key;
+        const rightChild = node.right.key;
+        node.right = rightRotate(node.right);
+        const rotated = leftRotate(node);
+        rotationInfo = {
+          type: 'RL',
+          unbalancedNode: unbalancedKey,
+          pivotNode: node.right ? node.right.key : '?',
+          description: `⚡ حالة RL (Right-Left): إدراج ${key} أدى إلى عدم توازن في العقدة ${unbalancedKey} (BF=-2). الابن الأيمن ${rightChild} ثقيل يساراً. تم تنفيذ دوران مزدوج: أولاً دوران يمين على ${rightChild}، ثم دوران يسار على ${unbalancedKey}.`
+        };
+        return [rotated, rotationInfo];
+      }
+
+      return [node, rotationInfo];
+    }
+
+    // ===================== Tree State =====================
+    let avlRoot = null;
+    let lastOperation = null; // stores the last rotation/insert description for display
+    let historyLog = [];
+
+    // ===================== Visual Layout Functions =====================
+    function computeLayout(root) {
+      if (!root) return;
+      // Inorder traversal to assign x coordinates
+      const spacingX = 60; // horizontal gap between nodes
+      let counter = 0;
+      const depthMap = new Map(); // node -> {x, y}
+
+      function inorder(node, depth) {
+        if (!node) return;
+        inorder(node.left, depth + 1);
+        // Assign x based on inorder position
+        const x = counter * spacingX + 40;
+        const y = depth * 80 + 50;
+        depthMap.set(node, { x, y });
+        counter++;
+        inorder(node.right, depth + 1);
+      }
+
+      inorder(root, 0);
+      return depthMap;
+    }
+
+    function drawTree() {
+      const svg = document.getElementById('treeSVG');
+      const container = document.getElementById('treeContainer');
+      if (!avlRoot) {
+        svg.innerHTML = '';
+        svg.setAttribute('height', '100');
+        return;
+      }
+
+      const layout = computeLayout(avlRoot);
+      if (!layout || layout.size === 0) {
+        svg.innerHTML = '';
+        return;
+      }
+
+      // Calculate required width & height
+      let maxX = 0, maxY = 0;
+      for (let [node, pos] of layout.entries()) {
+        if (pos.x > maxX) maxX = pos.x;
+        if (pos.y > maxY) maxY = pos.y;
+      }
+      const width = Math.max(600, maxX + 80);
+      const height = Math.max(300, maxY + 100);
+      svg.setAttribute('width', width);
+      svg.setAttribute('height', height);
+      svg.style.minWidth = width + 'px';
+
+      // Clear SVG
+      svg.innerHTML = '';
+
+      // Draw edges (lines)
+      for (let [node, pos] of layout.entries()) {
+        if (node.left) {
+          const childPos = layout.get(node.left);
+          drawLine(svg, pos.x, pos.y, childPos.x, childPos.y, '#90a4ae');
+        }
+        if (node.right) {
+          const childPos = layout.get(node.right);
+          drawLine(svg, pos.x, pos.y, childPos.x, childPos.y, '#90a4ae');
+        }
+      }
+
+      // Draw nodes
+      for (let [node, pos] of layout.entries()) {
+        const balance = getBalance(node);
+        // Color based on balance
+        let fillColor = '#42a5f5'; // normal blue
+        if (balance > 1 || balance < -1) fillColor = '#ef5350'; // unbalanced red
+        else if (Math.abs(balance) === 1) fillColor = '#66bb6a'; // slightly heavy green
+
+        // Highlight if node was involved in rotation (using lastOperation info)
+        if (lastOperation && lastOperation.involvedKeys && lastOperation.involvedKeys.includes(node.key)) {
+          fillColor = '#ffa726'; // orange highlight
+        }
+
+        drawNode(svg, pos.x, pos.y, node.key, balance, fillColor);
+      }
+    }
+
+    function drawLine(svg, x1, y1, x2, y2, color) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', '2');
+      svg.appendChild(line);
+    }
+
+    function drawNode(svg, x, y, key, balance, color) {
+      const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', 22);
+      circle.setAttribute('fill', color);
+      circle.setAttribute('stroke', '#fff');
+      circle.setAttribute('stroke-width', '2');
+      group.appendChild(circle);
+
+      const textKey = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      textKey.setAttribute('x', x);
+      textKey.setAttribute('y', y - 3);
+      textKey.setAttribute('text-anchor', 'middle');
+      textKey.setAttribute('fill', 'white');
+      textKey.setAttribute('font-weight', 'bold');
+      textKey.setAttribute('font-size', '14');
+      textKey.textContent = key;
+      group.appendChild(textKey);
+
+      const textBF = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      textBF.setAttribute('x', x);
+      textBF.setAttribute('y', y + 16);
+      textBF.setAttribute('text-anchor', 'middle');
+      textBF.setAttribute('fill', balance > 1 || balance < -1 ? '#fff' : '#212121');
+      textBF.setAttribute('font-size', '11');
+      textBF.textContent = `BF:${balance > 0 ? '+' + balance : balance}`;
+      group.appendChild(textBF);
+
+      svg.appendChild(group);
+    }
+
+    // ===================== UI Update Functions =====================
+    function updateUI(rotationInfo) {
+      // Build explanation text
+      let explanationText = '';
+      if (rotationInfo && rotationInfo.type === 'duplicate') {
+        explanationText = `⚠️ المفتاح ${rotationInfo.key} مكرر، لم يتم إدراجه.`;
+      } else if (rotationInfo) {
+        explanationText = rotationInfo.description || 'تم الإدراج بدون دوران.';
+        // Determine involved keys for highlighting
+        const involved = [];
+        if (rotationInfo.unbalancedNode) involved.push(rotationInfo.unbalancedNode);
+        if (rotationInfo.pivotNode) involved.push(rotationInfo.pivotNode);
+        lastOperation = { ...rotationInfo, involvedKeys: involved };
+      } else {
+        explanationText = '✅ تم الإدراج بنجاح دون الحاجة إلى دوران. الشجرة متوازنة.';
+        lastOperation = null;
+      }
+
+      document.getElementById('explanation').innerHTML = explanationText;
+
+      // Add to history
+      const historyDiv = document.getElementById('history');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.textContent = `[${time}] ${explanationText.replace(/⚡|✅|⚠️/g, '').trim()}`;
+      historyDiv.appendChild(entry);
+      historyDiv.scrollTop = historyDiv.scrollHeight;
+
+      // Redraw tree with highlights
+      drawTree();
+    }
+
+    function insertValue() {
+      const input = document.getElementById('valueInput');
+      const value = parseInt(input.value);
+      if (isNaN(value)) {
+        alert('الرجاء إدخال رقم صحيح');
+        return;
+      }
+      const [newRoot, rotationInfo] = insert(avlRoot, value);
+      avlRoot = newRoot;
+      updateUI(rotationInfo);
+      input.value = '';
+      input.focus();
+    }
+
+    function insertSequence() {
+      const seq = [30, 20, 10, 40, 50, 25];
+      for (let val of seq) {
+        const [newRoot, rotationInfo] = insert(avlRoot, val);
+        avlRoot = newRoot;
+        updateUI(rotationInfo);
+      }
+    }
+
+    function resetTree() {
+      avlRoot = null;
+      lastOperation = null;
+      document.getElementById('explanation').innerHTML = '🟢 تم إعادة التعيين. الشجرة فارغة الآن.';
+      document.getElementById('history').innerHTML = '<strong>📜 سجل العمليات:</strong>';
+      drawTree();
+    }
+
+    // Handle Enter key
+    document.getElementById('valueInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        insertValue();
+      }
+    });
+
+    // Initial draw
+    drawTree();
+  </script>
+</body>
+</html>
